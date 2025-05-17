@@ -167,4 +167,240 @@
     </div>
 </body>
 
+<script>
+    const warehouseApiBase = 'http://localhost:8080/api/warehouse/products'; // API của warehouse-service
+    const branchApiBase = 'http://localhost:8081/api/branches'; // API của branch-service
+
+    const branchTitle = document.getElementById('branchTitle');
+    const branchInfoDiv = document.getElementById('branchInfoDiv');
+    const displayBranchCode = document.getElementById('displayBranchCode');
+    const displayBranchName = document.getElementById('displayBranchName');
+    const displayBranchAddress = document.getElementById('displayBranchAddress');
+    const displayBranchStatus = document.getElementById('displayBranchStatus');
+    const mainContentDiv = document.getElementById('mainContent');
+    const statusMessageDiv = document.getElementById('statusMessage');
+    const productsTableBody = document.getElementById('productsTable').getElementsByTagName('tbody')[0];
+
+    let currentBranchCode = '';
+    let branchProducts = []; // Lưu danh sách sản phẩm gốc của chi nhánh
+
+    // Hàm hiển thị thông báo
+    function showStatusMessage(text, type = 'info') { // type can be 'info', 'success', 'error'
+        statusMessageDiv.textContent = text;
+        statusMessageDiv.className = `message ${type}`;
+        statusMessageDiv.style.display = text ? 'block' : 'none';
+    }
+
+    // Lấy branchCode từ URL
+    function getBranchCodeFromURL() {
+        const pathSegments = window.location.pathname.split('/');
+        // Giả sử URL là /pos/{branchCode} hoặc /branch-pos-ui/pos/{branchCode} (nếu chạy trong subfolder)
+        // Tìm "pos" và lấy segment tiếp theo
+        const posIndex = pathSegments.indexOf('pos');
+        if (posIndex !== -1 && posIndex + 1 < pathSegments.length) {
+            return pathSegments[posIndex + 1];
+        }
+        return null;
+    }
+
+    // Kiểm tra trạng thái chi nhánh
+    async function checkBranchStatus(branchCode) {
+        if (!branchCode) {
+            showStatusMessage('Không tìm thấy mã chi nhánh trong URL.', 'error');
+            return false;
+        }
+        currentBranchCode = branchCode;
+        branchTitle.textContent = `POS Chi Nhánh - ${branchCode}`;
+        displayBranchCode.textContent = branchCode;
+
+        try {
+            const response = await fetch(`${branchApiBase}/by-code/${branchCode}?activeOnly=false`); // Lấy cả inactive để thông báo
+            if (!response.ok) {
+                if(response.status === 404) {
+                    showStatusMessage(`Chi nhánh với mã "${branchCode}" không tồn tại.`, 'error');
+                } else {
+                    showStatusMessage(`Lỗi khi kiểm tra chi nhánh: ${response.status}`, 'error');
+                }
+                return false;
+            }
+            const branch = await response.json();
+            displayBranchName.textContent = branch.name;
+            displayBranchAddress.textContent = branch.address || 'N/A';
+
+            if (branch.active) {
+                displayBranchStatus.innerHTML = '<strong style="color:green;">Đang Hoạt Động</strong>';
+                branchInfoDiv.style.display = 'block';
+                mainContentDiv.style.display = 'block';
+                showStatusMessage('Tải thông tin chi nhánh thành công.', 'success');
+                return true;
+            } else {
+                displayBranchStatus.innerHTML = '<strong style="color:red;">Không Hoạt Động</strong>';
+                branchInfoDiv.style.display = 'block';
+                mainContentDiv.style.display = 'none';
+                showStatusMessage(`Chi nhánh "${branch.name}" (${branchCode}) hiện không hoạt động.`, 'error');
+                return false;
+            }
+        } catch (error) {
+            showStatusMessage(`Lỗi kết nối đến Branch Service: ${error.message}`, 'error');
+            console.error("Error checking branch status:", error);
+            return false;
+        }
+    }
+
+    // Tải danh sách sản phẩm cho chi nhánh
+    async function fetchProductsForBranch(branchCode) {
+    showStatusMessage('Đang tải sản phẩm của chi nhánh...', 'info');
+    try {
+        // SỬA LẠI DÒNG NÀY: Bỏ bớt "/products" vì nó đã có trong warehouseApiBase
+        const response = await fetch(`${warehouseApiBase}/branch/${branchCode}`);
+        // URL đúng sẽ là: http://localhost:8080/api/warehouse/products/branch/CN_HCM_1
+
+        if (!response.ok) {
+             if (response.status === 204 || response.status === 404) {
+                branchProducts = [];
+                renderProductsTable();
+                showStatusMessage(`Chi nhánh ${branchCode} không có sản phẩm nào.`, 'info');
+                return;
+            }
+            throw new Error(`Lỗi HTTP khi tải sản phẩm: ${response.status}`);
+        }
+        branchProducts = await response.json();
+        renderProductsTable();
+        showStatusMessage('Tải sản phẩm thành công!', 'success');
+    } catch (error) {
+        showStatusMessage(`Lỗi khi tải sản phẩm: ${error.message}`, 'error');
+        console.error("Error fetching products for branch:", error);
+        branchProducts = [];
+        renderProductsTable();
+    }
+}
+
+
+    // Hiển thị sản phẩm lên bảng
+    function renderProductsTable(productsToRender = branchProducts) {
+        productsTableBody.innerHTML = '';
+        if (!productsToRender || productsToRender.length === 0) {
+            const row = productsTableBody.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 5; // Giữ nguyên colSpan
+            cell.textContent = 'Không có sản phẩm nào tại chi nhánh này.';
+            cell.style.textAlign = 'center';
+            return;
+        }
+
+        productsToRender.forEach(product => {
+            const inventory = (product.branchesInventory && product.branchesInventory.length > 0)
+                              ? product.branchesInventory[0]
+                              : { sellingPrice: 'N/A', quantity: 'N/A' };
+
+            let row = productsTableBody.insertRow();
+            row.insertCell().textContent = product.productId;
+            row.insertCell().textContent = product.name;
+            row.insertCell().textContent = inventory.sellingPrice !== 'N/A' ? inventory.sellingPrice.toLocaleString('vi-VN') + ' VNĐ' : 'N/A';
+            row.insertCell().textContent = inventory.quantity !== 'N/A' ? inventory.quantity : 'N/A';
+
+            let actionsCell = row.insertCell();
+            actionsCell.className = 'product-actions'; // Giữ lại class này nếu bạn có style riêng
+
+            // Tạo ô input cho số lượng muốn bán
+            let quantityInput = document.createElement('input');
+            quantityInput.type = 'number';
+            quantityInput.min = '1'; // Số lượng bán tối thiểu là 1
+            if (inventory.quantity !== 'N/A' && inventory.quantity > 0) {
+                quantityInput.max = inventory.quantity.toString(); // Số lượng bán tối đa là số lượng tồn kho
+                quantityInput.value = '1'; // Giá trị mặc định là 1
+            } else {
+                quantityInput.value = '0';
+                quantityInput.disabled = true; // Vô hiệu hóa nếu không có hàng hoặc số lượng không xác định
+            }
+            quantityInput.style.width = '60px'; // Điều chỉnh độ rộng cho phù hợp
+            quantityInput.style.marginRight = '5px';
+            quantityInput.id = `sellQuantity_${product.productId}`; // Gán ID duy nhất cho input
+
+            actionsCell.appendChild(quantityInput);
+
+            // Tạo nút "Bán"
+            let sellButton = document.createElement('button');
+            sellButton.textContent = 'Bán';
+            sellButton.className = 'sell-btn'; // Giữ lại class này nếu bạn có style riêng
+            sellButton.disabled = inventory.quantity === 'N/A' || inventory.quantity <= 0; // Vô hiệu hóa nếu không có hàng
+
+            sellButton.onclick = () => {
+                const qtyToSellInput = document.getElementById(`sellQuantity_${product.productId}`);
+                const quantityToSell = parseInt(qtyToSellInput.value);
+
+                if (isNaN(quantityToSell) || quantityToSell <= 0) {
+                    showStatusMessage('Vui lòng nhập số lượng bán hợp lệ (lớn hơn 0).', 'error');
+                    qtyToSellInput.focus();
+                    return;
+                }
+                if (inventory.quantity !== 'N/A' && quantityToSell > inventory.quantity) {
+                     showStatusMessage(`Số lượng bán (${quantityToSell}) không được vượt quá số lượng tồn kho (${inventory.quantity}).`, 'error');
+                     qtyToSellInput.focus();
+                     return;
+                }
+                sellProduct(product.productId, currentBranchCode, quantityToSell);
+            };
+            actionsCell.appendChild(sellButton);
+        });
+    }
+
+    // Lọc sản phẩm
+    function filterProducts() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const filteredProducts = branchProducts.filter(product => {
+            return product.productId.toLowerCase().includes(searchTerm) ||
+                   product.name.toLowerCase().includes(searchTerm);
+        });
+        renderProductsTable(filteredProducts);
+    }
+
+    // "Bán" sản phẩm (giảm tồn kho)
+    async function sellProduct(productId, branchId, quantityToDecrement) { // quantityToDecrement giờ sẽ là số lượng người dùng nhập
+        if (!confirm(`Xác nhận bán ${quantityToDecrement} sản phẩm "${productId}" tại chi nhánh ${branchId}?`)) {
+            return;
+        }
+        showStatusMessage('Đang xử lý yêu cầu giảm tồn kho...', 'info');
+        try {
+            const response = await fetch(`${warehouseApiBase}/inventory/decrement`, { // URL này đã đúng
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId, branchId, quantityToDecrement }) // Gửi số lượng đã nhập
+            });
+
+            if (response.ok) {
+                showStatusMessage(`Đã bán ${quantityToDecrement} sản phẩm "${productId}". Tồn kho đã được cập nhật.`, 'success');
+                // Tải lại danh sách sản phẩm để cập nhật số lượng
+                fetchProductsForBranch(currentBranchCode);
+            } else {
+                const errorData = await response.json(); // Cố gắng parse lỗi JSON từ backend
+                let errorMessage = errorData.message || JSON.stringify(errorData); // Lấy message nếu có, hoặc toàn bộ lỗi
+                if (response.status === 400 && errorData.message && errorData.message.startsWith("Not enough stock")) {
+                     showStatusMessage(`Lỗi khi bán sản phẩm: ${errorData.message}`, 'error');
+                } else {
+                    showStatusMessage(`Lỗi khi bán sản phẩm: ${response.status} - ${errorMessage}`, 'error');
+                }
+                console.error("Error selling product:", errorData);
+            }
+        } catch (error) {
+            showStatusMessage(`Lỗi kết nối khi bán sản phẩm: ${error.message}`, 'error');
+            console.error("Error selling product:", error);
+        }
+    }
+
+    // Khởi tạo khi trang tải xong
+    document.addEventListener('DOMContentLoaded', async () => {
+        const branchCodeFromURL = getBranchCodeFromURL();
+        if (branchCodeFromURL) {
+            const isBranchValidAndActive = await checkBranchStatus(branchCodeFromURL);
+            if (isBranchValidAndActive) {
+                await fetchProductsForBranch(branchCodeFromURL);
+            }
+        } else {
+            showStatusMessage('URL không hợp lệ. Vui lòng truy cập dạng /pos/{MãChiNhánh}', 'error');
+            mainContentDiv.style.display = 'none';
+        }
+    });
+</script>
+
 </html>
