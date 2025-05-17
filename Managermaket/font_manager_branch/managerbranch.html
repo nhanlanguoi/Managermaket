@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Chi Nhánh</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        .container { max-width: 900px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], input[type="number"], select { width: calc(100% - 22px); padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 5px; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        button.edit-btn { background-color: #ffc107; }
+        button.edit-btn:hover { background-color: #e0a800; }
+        button.delete-btn { background-color: #dc3545; }
+        button.delete-btn:hover { background-color: #c82333; }
+        .form-section { margin-bottom: 30px; padding: 15px; border: 1px solid #eee; border-radius: 4px; }
+        #responseMessage, #formResponseMessage { margin-top: 15px; padding: 10px; border-radius: 4px; text-align: center; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Quản Lý Chi Nhánh</h1>
+
+    <div class="form-section">
+        <h2 id="formTitle">Thêm Chi Nhánh Mới</h2>
+        <form id="branchForm">
+            <input type="hidden" id="branchId" name="branchId"> <label for="branchCode">Mã Chi Nhánh (ví dụ: CN_HCM_Q1):</label>
+            <input type="text" id="branchCode" name="branchCode" required>
+
+            <label for="name">Tên Chi Nhánh:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="address">Địa Chỉ:</label>
+            <input type="text" id="address" name="address">
+
+            <label for="city">Thành Phố:</label>
+            <input type="text" id="city" name="city">
+
+            <label for="phoneNumber">Số Điện Thoại:</label>
+            <input type="text" id="phoneNumber" name="phoneNumber">
+
+            <label for="active">Trạng Thái Hoạt Động:</label>
+            <select id="active" name="active">
+                <option value="true" selected>Hoạt Động</option>
+                <option value="false">Không Hoạt Động</option>
+            </select>
+
+            <button type="submit" id="submitButton">Thêm Chi Nhánh</button>
+            <button type="button" id="clearFormButton" style="background-color: #6c757d;">Xóa Form</button>
+        </form>
+        <div id="formResponseMessage"></div>
+    </div>
+
+    <h2>Danh Sách Chi Nhánh</h2>
+    <button onclick="fetchBranches()">Tải Lại Danh Sách</button>
+    <div id="responseMessage"></div>
+    <table id="branchesTable">
+        <thead>
+        <tr>
+            <th>ID CSDL</th>
+            <th>Mã Chi Nhánh</th>
+            <th>Tên Chi Nhánh</th>
+            <th>Địa Chỉ</th>
+            <th>Thành Phố</th>
+            <th>SĐT</th>
+            <th>Hoạt Động</th>
+            <th>Hành Động</th>
+        </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const apiUrl = 'http://localhost:8081/api/branches'; // API của branch-service
+    const branchForm = document.getElementById('branchForm');
+    const formTitle = document.getElementById('formTitle');
+    const submitButton = document.getElementById('submitButton');
+    const branchIdField = document.getElementById('branchId');
+    const formResponseMessage = document.getElementById('formResponseMessage');
+    const responseMessageDiv = document.getElementById('responseMessage');
+
+    // Hàm hiển thị thông báo
+    function showMessage(element, message, isSuccess) {
+        element.textContent = message;
+        element.className = isSuccess ? 'success' : 'error';
+    }
+
+    // Hàm tải và hiển thị danh sách chi nhánh
+    async function fetchBranches() {
+        responseMessageDiv.textContent = 'Đang tải...';
+        responseMessageDiv.className = '';
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error(`Lỗi HTTP: ${response.status}`);
+            }
+            const branches = await response.json();
+            const tbody = document.getElementById('branchesTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = ''; // Xóa các dòng cũ
+
+            if (branches.length === 0) {
+                responseMessageDiv.textContent = 'Không có chi nhánh nào.';
+                return;
+            }
+
+            branches.forEach(branch => {
+                let row = tbody.insertRow();
+                row.insertCell().textContent = branch.id;
+                row.insertCell().textContent = branch.branchCode;
+                row.insertCell().textContent = branch.name;
+                row.insertCell().textContent = branch.address || '';
+                row.insertCell().textContent = branch.city || '';
+                row.insertCell().textContent = branch.phoneNumber || '';
+                row.insertCell().textContent = branch.active ? 'Có' : 'Không';
+
+                let actionsCell = row.insertCell();
+                let editButton = document.createElement('button');
+                editButton.textContent = 'Sửa';
+                editButton.className = 'edit-btn';
+                editButton.onclick = () => populateFormForEdit(branch);
+                actionsCell.appendChild(editButton);
+
+                let deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Xóa';
+                deleteButton.className = 'delete-btn';
+                deleteButton.onclick = () => deleteBranch(branch.id);
+                actionsCell.appendChild(deleteButton);
+            });
+            responseMessageDiv.textContent = ''; // Xóa thông báo "Đang tải..."
+        } catch (error) {
+            showMessage(responseMessageDiv, `Lỗi khi tải danh sách chi nhánh: ${error.message}`, false);
+            console.error('Fetch branches error:', error);
+        }
+    }
+
+    // Điền form để sửa
+    function populateFormForEdit(branch) {
+        formTitle.textContent = 'Sửa Thông Tin Chi Nhánh';
+        branchIdField.value = branch.id;
+        document.getElementById('branchCode').value = branch.branchCode;
+        document.getElementById('name').value = branch.name;
+        document.getElementById('address').value = branch.address || '';
+        document.getElementById('city').value = branch.city || '';
+        document.getElementById('phoneNumber').value = branch.phoneNumber || '';
+        document.getElementById('active').value = branch.active.toString();
+        submitButton.textContent = 'Cập Nhật Chi Nhánh';
+        window.scrollTo(0, 0); // Cuộn lên đầu trang để thấy form
+    }
+
+    // Xóa form và chuyển về chế độ "Thêm mới"
+    document.getElementById('clearFormButton').addEventListener('click', () => {
+        branchForm.reset();
+        branchIdField.value = '';
+        formTitle.textContent = 'Thêm Chi Nhánh Mới';
+        submitButton.textContent = 'Thêm Chi Nhánh';
+        formResponseMessage.textContent = '';
+        formResponseMessage.className = '';
+        document.getElementById('active').value = "true"; // Mặc định khi thêm mới
+    });
+
+    // Xử lý submit form (Thêm mới hoặc Cập nhật)
+    branchForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        formResponseMessage.textContent = '';
+        formResponseMessage.className = '';
+
+        const branchData = {
+            branchCode: document.getElementById('branchCode').value,
+            name: document.getElementById('name').value,
+            address: document.getElementById('address').value,
+            city: document.getElementById('city').value,
+            phoneNumber: document.getElementById('phoneNumber').value,
+            active: document.getElementById('active').value === 'true'
+        };
+
+        let url = apiUrl;
+        let method = 'POST';
+
+        const id = branchIdField.value;
+        if (id) { // Nếu có ID -> Cập nhật
+            url = `${apiUrl}/${id}`;
+            method = 'PUT';
+            branchData.id = parseInt(id); // Gửi kèm id nếu API yêu cầu (thường không cần cho body)
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(branchData)
+            });
+
+            if (response.ok) {
+                const resultText = id ? 'cập nhật' : 'thêm mới';
+                showMessage(formResponseMessage, `Chi nhánh đã được ${resultText} thành công!`, true);
+                document.getElementById('clearFormButton').click(); // Xóa form
+                fetchBranches(); // Tải lại danh sách
+            } else {
+                const errorResult = await response.text();
+                showMessage(formResponseMessage, `Lỗi: ${response.status} - ${errorResult || response.statusText}`, false);
+            }
+        } catch (error) {
+            showMessage(formResponseMessage, `Lỗi kết nối: ${error.message}`, false);
+        }
+    });
+
+    // Xóa chi nhánh
+    async function deleteBranch(id) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa chi nhánh có ID CSDL là ${id}?`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`${apiUrl}/${id}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                showMessage(responseMessageDiv, `Chi nhánh ${id} đã được xóa thành công.`, true);
+                fetchBranches(); // Tải lại danh sách
+            } else {
+                const errorResult = await response.text();
+                showMessage(responseMessageDiv, `Lỗi khi xóa chi nhánh: ${response.status} - ${errorResult || response.statusText}`, false);
+            }
+        } catch (error) {
+            showMessage(responseMessageDiv, `Lỗi kết nối: ${error.message}`, false);
+        }
+    }
+
+    // Tải danh sách chi nhánh khi trang được load
+    document.addEventListener('DOMContentLoaded', fetchBranches);
+</script>
+</body>
+</html>
