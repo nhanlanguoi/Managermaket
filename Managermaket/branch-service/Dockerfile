@@ -1,4 +1,4 @@
-# build jar 
+# build jar với tên builder
 FROM maven:3.8.5-openjdk-17 AS builder
 # chỉ định thư mục app các câu lệnh tiếp theo sẽ được hoạt động trong folder app 
 WORKDIR /app
