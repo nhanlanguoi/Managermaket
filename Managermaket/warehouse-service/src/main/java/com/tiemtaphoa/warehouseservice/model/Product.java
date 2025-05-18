@@ -27,13 +27,12 @@ public class Product {
     private String description;
 
     @Field(type = FieldType.Double)
-    private double basePrice; // Giá gốc
+    private double basePrice; 
 
     @Field(type = FieldType.Keyword)
     private String category;
 
-    // Sử dụng FieldType.Nested cho mảng các đối tượng phức tạp
-    // Điều này quan trọng để truy vấn chính xác các trường con bên trong branchesInventory
+    
     @Field(type = FieldType.Nested, includeInParent = true)
     private List<BranchInventory> branchesInventory;
 
