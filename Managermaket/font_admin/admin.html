@@ -280,6 +280,312 @@
     </div>
 </body>
 
+<script>
+  const WAREHOUSE_API_BASE = 'http://localhost:8080/api/warehouse/products';
 
+
+  document.getElementById('addProductForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const responseMessageDiv = document.getElementById('responseMessage');
+      setResponseMessage(responseMessageDiv, '', '');
+
+      const product = {
+          productId: document.getElementById('productId').value,
+          name: document.getElementById('name').value,
+          description: document.getElementById('description').value,
+          basePrice: parseFloat(document.getElementById('basePrice').value),
+          category: document.getElementById('category').value,
+          branchesInventory: getBranchInventoriesFromFields('addBranchesContainer', 'add_')
+      };
+
+      console.log('Sending product data:', JSON.stringify(product));
+
+      try {
+          const response = await fetch(WAREHOUSE_API_BASE, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(product)
+          });
+
+          if (response.ok) {
+              const createdProduct = await response.json();
+              setResponseMessage(responseMessageDiv, 'Sản phẩm đã được thêm thành công! ID nội bộ: ' + createdProduct.id, 'success');
+              document.getElementById('addProductForm').reset();
+              document.getElementById('addBranchesContainer').innerHTML = createBranchInventoryFieldsHTML(0, 'add_'); // Reset về 1 mục
+              fetchAllProductsAdmin(); // Tải lại danh sách sản phẩm
+          } else {
+              const errorText = await response.text();
+              setResponseMessage(responseMessageDiv, `Lỗi khi thêm sản phẩm: ${response.status} - ${errorText || response.statusText}`, 'error');
+              console.error('Error data:', errorText);
+          }
+      } catch (error) {
+          setResponseMessage(responseMessageDiv, 'Lỗi kết nối hoặc lỗi JavaScript: ' + error.message, 'error');
+          console.error('Fetch error:', error);
+      }
+  });
+
+  let branchFieldCounter = 1;
+  function addBranchInventoryField(containerId, prefix) {
+      const container = document.getElementById(containerId);
+      const newIndex = container.getElementsByClassName('branch-inventory-item').length;
+      // Không cần tạo div ở đây nữa vì createBranchInventoryFieldsHTML đã tự bọc
+      container.insertAdjacentHTML('beforeend', createBranchInventoryFieldsHTML(newIndex, prefix));
+  }
+
+
+  function createBranchInventoryFieldsHTML(index, prefix, branch = {branchId: '', quantity: '', sellingPrice: ''}) {
+      // Bọc toàn bộ nội dung của một mục inventory vào trong div.branch-inventory-item
+      return `
+          <div class="branch-inventory-item">
+              <h4>Thông Tin Tồn Kho Chi Nhánh ${index + 1}</h4>
+              <label for="${prefix}branchId_${index}">Mã Chi Nhánh:</label>
+              <input type="text" id="${prefix}branchId_${index}" class="${prefix}branchId" value="${branch.branchId || ''}">
+              <label for="${prefix}quantity_${index}">Số Lượng:</label>
+              <input type="number" id="${prefix}quantity_${index}" class="${prefix}quantity" step="1" value="${branch.quantity || ''}">
+              <label for="${prefix}sellingPrice_${index}">Giá Bán tại Chi Nhánh:</label>
+              <input type="number" id="${prefix}sellingPrice_${index}" class="${prefix}sellingPrice" step="any" value="${branch.sellingPrice || ''}">
+              ${index > 0 || (prefix === 'edit_' && index >= 0) /* Cho phép xóa cả mục đầu tiên trong form sửa nếu có nhiều hơn 1 */
+                ? `<button type="button" class="button delete-btn" onclick="this.closest('.branch-inventory-item').remove()">Xóa mục này</button>`
+                : ''
+              }
+              ${index > 0 || (prefix === 'edit_' && index > 0) ? '<hr style="margin-top:10px; margin-bottom:10px;">' : (prefix === 'add_' && index === 0 ? '' : '<hr style="margin-top:10px; margin-bottom:10px;">')}
+          </div>
+      `;
+  }
+
+  // Khởi tạo mục đầu tiên cho form thêm
+  document.getElementById('addBranchesContainer').innerHTML = createBranchInventoryFieldsHTML(0, 'add_');
+
+
+  function getBranchInventoriesFromFields(containerId, prefix) {
+    const inventories = [];
+    const container = document.getElementById(containerId);
+    console.log(`[getBranchInventories] Container found:`, container); // Log container
+
+    const items = container.getElementsByClassName('branch-inventory-item');
+    console.log(`[getBranchInventories] Found ${items.length} items with class 'branch-inventory-item'`); // Log số lượng items
+
+    for (let i = 0; i < items.length; i++) {
+        console.log(`[getBranchInventories] Processing item ${i}:`, items[i]); // Log từng item
+
+        const branchIdElement = items[i].querySelector(`.${prefix}branchId`);
+        const quantityElement = items[i].querySelector(`.${prefix}quantity`);
+        const sellingPriceElement = items[i].querySelector(`.${prefix}sellingPrice`);
+
+        console.log(`[getBranchInventories] Item ${i} - branchIdElement:`, branchIdElement);
+        console.log(`[getBranchInventories] Item ${i} - quantityElement:`, quantityElement);
+        console.log(`[getBranchInventories] Item ${i} - sellingPriceElement:`, sellingPriceElement);
+
+        const branchId = branchIdElement ? branchIdElement.value : null;
+        const quantityInput = quantityElement ? quantityElement.value : null;
+        const sellingPriceInput = sellingPriceElement ? sellingPriceElement.value : null;
+
+        console.log(`[getBranchInventories] Item ${i} - branchId value: '${branchId}'`);
+        console.log(`[getBranchInventories] Item ${i} - quantityInput value: '${quantityInput}'`);
+        console.log(`[getBranchInventories] Item ${i} - sellingPriceInput value: '${sellingPriceInput}'`);
+
+        if (branchId && branchId.trim() !== '') { // Sửa điều kiện: Chỉ thêm nếu branchId có giá trị (sau khi đã trim)
+            inventories.push({
+                branchId: branchId.trim(),
+                quantity: quantityInput ? parseInt(quantityInput) : 0,
+                sellingPrice: sellingPriceInput ? parseFloat(sellingPriceInput) : 0.0
+            });
+            console.log(`[getBranchInventories] Item ${i} - Pushed to inventories:`, inventories[inventories.length - 1]);
+        } else {
+            console.log(`[getBranchInventories] Item ${i} - Skipped due to empty branchId.`);
+        }
+    }
+    console.log('[getBranchInventories] Final inventories:', inventories);
+    return inventories;
+}
+
+
+  // --- PHẦN MỚI: Code cho Danh sách, Sửa, Xóa Sản Phẩm ---
+  const allProductsTableBody = document.getElementById('allProductsTable').getElementsByTagName('tbody')[0];
+  const listResponseMessageDiv = document.getElementById('listResponseMessage');
+  const editProductContainer = document.getElementById('editProductContainer');
+  const editProductForm = document.getElementById('editProductForm');
+
+  function setResponseMessage(element, text, type) {
+      element.textContent = text;
+      element.className = `message ${type}`; // Thêm class 'message'
+      element.style.display = text ? 'block' : 'none';
+  }
+
+  async function fetchAllProductsAdmin() {
+      setResponseMessage(listResponseMessageDiv, 'Đang tải tất cả sản phẩm...', 'info');
+      allProductsTableBody.innerHTML = '';
+      try {
+          const response = await fetch(WAREHOUSE_API_BASE); // Gọi GET /api/warehouse/products
+          if (!response.ok) {
+              throw new Error(`Lỗi HTTP: ${response.status} - ${await response.text()}`);
+          }
+          const products = await response.json();
+
+          if (products.length === 0) {
+              setResponseMessage(listResponseMessageDiv, 'Không có sản phẩm nào trong kho.', 'info');
+              const row = allProductsTableBody.insertRow();
+              const cell = row.insertCell();
+              cell.colSpan = 6; // Cập nhật colSpan
+              cell.textContent = 'Không có sản phẩm nào.';
+              cell.style.textAlign = 'center';
+              return;
+          }
+
+          products.forEach(product => {
+              let row = allProductsTableBody.insertRow();
+              row.insertCell().textContent = product.productId || 'N/A';
+              row.insertCell().textContent = product.name || 'N/A';
+              row.insertCell().textContent = product.basePrice ? product.basePrice.toLocaleString('vi-VN') + ' VNĐ' : 'N/A';
+              row.insertCell().textContent = product.category || 'N/A';
+
+              let inventoryCell = row.insertCell();
+              let inventoryHtml = '<ul>';
+              if (product.branchesInventory && product.branchesInventory.length > 0) {
+                  product.branchesInventory.forEach(inv => {
+                      inventoryHtml += `<li>${inv.branchId}: SL ${inv.quantity}, Giá ${inv.sellingPrice ? inv.sellingPrice.toLocaleString('vi-VN') : 'N/A'} VNĐ</li>`;
+                  });
+              } else {
+                  inventoryHtml += '<li>Chưa có thông tin</li>';
+              }
+              inventoryHtml += '</ul>';
+              inventoryCell.innerHTML = inventoryHtml;
+
+              let actionsCell = row.insertCell();
+              actionsCell.className = 'actions';
+              let editButton = document.createElement('button');
+              editButton.textContent = 'Sửa';
+              editButton.onclick = () => populateEditForm(product.id);
+              actionsCell.appendChild(editButton);
+
+              let deleteButton = document.createElement('button');
+              deleteButton.textContent = 'Xóa';
+              deleteButton.style.backgroundColor = '#d9534f';
+              deleteButton.onclick = () => deleteProductAdmin(product.id, product.productId);
+              actionsCell.appendChild(deleteButton);
+          });
+          setResponseMessage(listResponseMessageDiv, 'Tải danh sách sản phẩm thành công!', 'success');
+
+      } catch (error) {
+          setResponseMessage(listResponseMessageDiv, 'Lỗi khi tải danh sách sản phẩm: ' + error.message, 'error');
+          console.error('Error fetching all products:', error);
+      }
+  }
+
+  async function populateEditForm(internalId) {
+    setResponseMessage(document.getElementById('editResponseMessage'), 'Đang tải dữ liệu sản phẩm...', 'info');
+    try {
+        const response = await fetch(`${WAREHOUSE_API_BASE}/${internalId}`); // Đây là cách đúng
+        if (!response.ok) {
+            throw new Error(`Lỗi HTTP khi lấy chi tiết sản phẩm: ${response.status}`);
+        }
+        const product = await response.json(); // product này chứa branchesInventory gốc từ DB
+
+        document.getElementById('editInternalId').value = product.id;
+        document.getElementById('editProductId').value = product.productId || '';
+        document.getElementById('editName').value = product.name || '';
+        document.getElementById('editDescription').value = product.description || '';
+        document.getElementById('editBasePrice').value = product.basePrice || 0;
+        document.getElementById('editCategory').value = product.category || '';
+
+        const editBranchesContainer = document.getElementById('editBranchesContainer');
+        editBranchesContainer.innerHTML = ''; // Xóa sạch các mục input cũ
+
+        if (product.branchesInventory && product.branchesInventory.length > 0) {
+            product.branchesInventory.forEach((inv, index) => {
+                // Tạo một div mới cho mỗi mục inventory
+                const div = document.createElement('div');
+                div.className = 'branch-inventory-item';
+                // createBranchInventoryFieldsHTML sẽ tạo HTML cho các input bên trong div này
+                div.innerHTML = createBranchInventoryFieldsHTML(index, 'edit_', inv);
+                editBranchesContainer.appendChild(div);
+            });
+        } else {
+             // Nếu không có inventory nào, tạo một mục trống để người dùng có thể nhập
+             const div = document.createElement('div');
+             div.className = 'branch-inventory-item';
+             div.innerHTML = createBranchInventoryFieldsHTML(0, 'edit_'); // Tạo một mục trống
+             editBranchesContainer.appendChild(div);
+        }
+
+        editProductContainer.style.display = 'block'; // Hiển thị form sửa
+        setResponseMessage(document.getElementById('editResponseMessage'), '', '');
+        document.getElementById('responseMessage').style.display = 'none';
+
+    } catch (error) {
+        setResponseMessage(document.getElementById('editResponseMessage'), 'Lỗi: ' + error.message, 'error');
+        console.error('Error populating edit form:', error);
+    }
+}
+
+  editProductForm.addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const internalId = document.getElementById('editInternalId').value;
+      const responseMessageDiv = document.getElementById('editResponseMessage');
+      setResponseMessage(responseMessageDiv, 'Đang cập nhật...', 'info');
+
+      const product = {
+          productId: document.getElementById('editProductId').value,
+          name: document.getElementById('editName').value,
+          description: document.getElementById('editDescription').value,
+          basePrice: parseFloat(document.getElementById('editBasePrice').value),
+          category: document.getElementById('editCategory').value,
+          branchesInventory: getBranchInventoriesFromFields('editBranchesContainer', 'edit_')
+      };
+      // Không cần gửi internalId trong body, nó đã có trong URL
+
+      try {
+          const response = await fetch(`${WAREHOUSE_API_BASE}/${internalId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(product)
+          });
+
+          if (response.ok) {
+              const updatedProduct = await response.json();
+              setResponseMessage(responseMessageDiv, 'Sản phẩm đã được cập nhật thành công!', 'success');
+              editProductContainer.style.display = 'none';
+              fetchAllProductsAdmin(); // Tải lại danh sách
+          } else {
+              const errorText = await response.text();
+              setResponseMessage(responseMessageDiv, `Lỗi khi cập nhật sản phẩm: ${response.status} - ${errorText || response.statusText}`, 'error');
+          }
+      } catch (error) {
+          setResponseMessage(responseMessageDiv, 'Lỗi kết nối: ' + error.message, 'error');
+          console.error('Error updating product:', error);
+      }
+  });
+
+  function cancelEdit() {
+      editProductContainer.style.display = 'none';
+      setResponseMessage(document.getElementById('editResponseMessage'), '', '');
+  }
+
+  async function deleteProductAdmin(internalId, productIdToDisplay) {
+      if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${productIdToDisplay || internalId}" (ID nội bộ: ${internalId}) không?`)) {
+          return;
+      }
+      setResponseMessage(listResponseMessageDiv, 'Đang xóa sản phẩm...', 'info');
+      try {
+          const response = await fetch(`${WAREHOUSE_API_BASE}/${internalId}`, {
+              method: 'DELETE'
+          });
+          if (response.ok) { // DELETE thường trả về 204 No Content khi thành công
+              setResponseMessage(listResponseMessageDiv, `Sản phẩm "${productIdToDisplay || internalId}" đã được xóa thành công.`, 'success');
+              fetchAllProductsAdmin(); // Tải lại danh sách
+          } else {
+              const errorText = await response.text();
+               setResponseMessage(listResponseMessageDiv, `Lỗi khi xóa sản phẩm: ${response.status} - ${errorText || response.statusText}`, 'error');
+          }
+      } catch (error) {
+          setResponseMessage(listResponseMessageDiv, 'Lỗi kết nối khi xóa sản phẩm: ' + error.message, 'error');
+          console.error('Error deleting product:', error);
+      }
+  }
+
+  // Tự động tải danh sách sản phẩm khi trang được mở
+  document.addEventListener('DOMContentLoaded', fetchAllProductsAdmin);
+
+</script>
 
 </html>

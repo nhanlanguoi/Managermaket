@@ -27,12 +27,11 @@ public class ProductService {
     }
 
     public Product createProduct(Product product) {
-        // Nếu bạn muốn Elasticsearch tự sinh ID cho document, thì không cần dòng này.
-        // Nhưng nếu bạn muốn kiểm soát ID document (trường @Id), bạn có thể làm như sau:
+        
         if (product.getId() == null) {
-            product.setId(UUID.randomUUID().toString()); // Tạo ID ngẫu nhiên cho document
+            product.setId(UUID.randomUUID().toString()); 
         }
-        // Hoặc bạn có thể gán product.setId(product.getProductId()); nếu muốn productId là ID document
+        
         return productRepository.save(product);
     }
 
@@ -90,37 +89,21 @@ public class ProductService {
             existingProduct.setCategory(productDetails.getCategory());
 
             if (productDetails.getBranchesInventory() != null) {
-                // Xử lý để đảm bảo không có branchId trùng lặp,
-                // và cập nhật thông tin cho branchId đã có hoặc thêm mới.
+                
                 List<BranchInventory> newInventories = new ArrayList<>();
                 // Sử dụng một Map để dễ dàng kiểm tra và cập nhật branchId đã tồn tại
                 java.util.Map<String, BranchInventory> inventoryMap = new java.util.HashMap<>();
 
-                // Đưa các inventory hiện có của sản phẩm vào map (nếu có)
-                // Điều này quan trọng nếu bạn muốn giữ lại các chi nhánh không được gửi từ form sửa
-                // Tuy nhiên, với logic frontend hiện tại là gửi toàn bộ, thì bước này có thể không cần
-                // if (existingProduct.getBranchesInventory() != null) {
-                //     for (BranchInventory inv : existingProduct.getBranchesInventory()) {
-                //         inventoryMap.put(inv.getBranchId(), inv);
-                //     }
-                // }
+                
 
                 // Xử lý các inventory được gửi từ form
                 for (BranchInventory updatedInv : productDetails.getBranchesInventory()) {
                     if (updatedInv.getBranchId() != null && !updatedInv.getBranchId().trim().isEmpty()) {
-                        // Nếu branchId này đã có trong map, cập nhật nó
-                        // Nếu chưa, nó sẽ được thêm mới
-                        // Để đơn giản, hiện tại chúng ta sẽ ghi đè hoặc thêm mới dựa trên những gì frontend gửi
-                        // Logic để tránh trùng lặp branchId từ frontend:
+                        
                         if (!inventoryMap.containsKey(updatedInv.getBranchId().trim())) {
                             inventoryMap.put(updatedInv.getBranchId().trim(), updatedInv);
                         } else {
-                            // Nếu đã có, bạn có thể chọn ghi đè thông tin (quantity, sellingPrice)
-                            // hoặc bỏ qua nếu không muốn trùng lặp.
-                            // Hiện tại, ví dụ này sẽ ưu tiên mục đầu tiên gặp phải có branchId đó.
-                            // Để cập nhật, bạn cần logic phức tạp hơn để merge.
-                            // Cách đơn giản nhất là đảm bảo frontend không gửi trùng branchId.
-                            // Hoặc, logic dưới đây sẽ lấy mục cuối cùng có branchId đó nếu frontend gửi trùng.
+                 
                             inventoryMap.put(updatedInv.getBranchId().trim(), updatedInv); // Ghi đè nếu trùng, lấy cái cuối cùng
                         }
                     }
