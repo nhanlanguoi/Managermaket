@@ -106,7 +106,7 @@ services:
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
       - xpack.security.transport.ssl.enabled=false
-    ulimits:
+    ulimits: #Ngăn Elasticsearch bị swap ra khỏi bộ nhớ
       memlock:
         soft: -1
         hard: -1
@@ -125,7 +125,7 @@ services:
       interval: 30s
       timeout: 15s
       retries: 10
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped
 
   branch-service: # Đổi tên thành branch-service cho nhất quán
     build:
@@ -149,16 +149,16 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped #Khởi động lại container trừ khi bị stop thủ công bởi người dùng
 
-  warehouse-service: # Đổi tên thành warehouse-service cho nhất quán
+  warehouse-service:
     build:
       context: ./warehouse-service
       dockerfile: Dockerfile
-    container_name: warehouse_service_compose # Đổi tên container
+    container_name: warehouse_service_compose
     ports:
       - "8080:8080"
-    depends_on: # Sửa lại depends_on cho Elasticsearch cluster
+    depends_on:
       es01:
         condition: service_healthy
       es02:
@@ -172,7 +172,7 @@ services:
       - SERVER_PORT=8080 # Chỉ định port bên trong container
     networks:
       - tiemtaphoa-network
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped
 
   admin-ui:
     build:
@@ -213,18 +213,18 @@ services:
     depends_on:
       - warehouse-service
       - branch-service
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped
 
 networks:
   tiemtaphoa-network:
     driver: bridge
 
-volumes:
+volumes: # lưu dữ liệu
   esdata01:
     driver: local
   esdata02:
     driver: local
   esdata03:
     driver: local
-  postgres_data_compose: # Giữ nguyên volume cho postgres
+  postgres_data_compose: #  volume cho postgres
     driver: local

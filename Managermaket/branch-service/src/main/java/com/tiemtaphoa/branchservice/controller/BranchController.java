@@ -26,13 +26,13 @@ public class BranchController {
 
     @PostMapping // Thường dùng để tạo mới tài nguyên 
     public ResponseEntity<?> createBranch(@RequestBody Branch branch) {
-        logger.info("CONTROLLER: Received request to create branch with code: {}", branch.getBranchCode());
+        logger.info("Nhận yêu cầu tạo chi nhánh với mã: {} ", branch.getBranchCode());
         try {
             Branch createdBranch = branchService.createBranch(branch);
-            logger.info("CONTROLLER: Branch {} created successfully with id: {}", createdBranch.getBranchCode(), createdBranch.getId());
+            logger.info("Chi nhánh {} đã được tạo thành công với ID: {}", createdBranch.getBranchCode(), createdBranch.getId());
             return new ResponseEntity<>(createdBranch, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
-            logger.error("CONTROLLER: Error creating branch with code: {}. Error: {}", branch.getBranchCode(), e.getMessage(), e);
+            logger.error("Lỗi khi tạo chi nhánh với mã: {}. Lỗi: {}", branch.getBranchCode(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -80,7 +80,7 @@ public class BranchController {
     public ResponseEntity<?> deleteBranch(@PathVariable Long id) {
         try {
             branchService.deleteBranch(id); 
-            return ResponseEntity.ok("Branch with id " + id + " deleted successfully.");
+            return ResponseEntity.ok("Chi nhánh với ID " + id + " đã được xóa thành công.");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }

@@ -6,8 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*; // Đảm bảo import này
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +100,7 @@ public class WarehouseController {
             // Điều này giúp frontend dễ dàng parse và hiển thị thông báo lỗi cụ thể hơn
             return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            logger.error("Error decrementing inventory for product: {} at branch: {}", request.getProductId(), request.getBranchId(), e);
+            logger.error("Lỗi khi giảm tồn kho cho sản phẩm: {} tại chi nhánh: {}", request.getProductId(), request.getBranchId(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of("message", "Lỗi hệ thống khi giảm tồn kho: " + e.getMessage()));
         }
     }

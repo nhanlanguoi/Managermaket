@@ -7,12 +7,14 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class BranchService {
 
     private final BranchRepository branchRepository;
-
+    private static final Logger logger = LoggerFactory.getLogger(BranchService.class);
     @Autowired
     public BranchService(BranchRepository branchRepository) {
         this.branchRepository = branchRepository;
@@ -21,15 +23,22 @@ public class BranchService {
     // kiểm tra chi nhánh đã tồn tại hay chưa
     public Branch createBranch(Branch branch) {
         if (branchRepository.existsByBranchCode(branch.getBranchCode())) {
-            throw new IllegalArgumentException("Branch code " + branch.getBranchCode() + " already exists.");
+            throw new IllegalArgumentException("Mã chi nhánh " + branch.getBranchCode() + " đã tồn tại.");
         }
         return branchRepository.save(branch);
     }
 
     // trả về địa chỉ chi nhánh giựa theo id
     public Optional<Branch> getBranchById(Long id) {
-        return branchRepository.findById(id);
+    logger.info("SERVICE: Tìm kiếm chi nhánh với ID: {}", id); // Thêm log
+    Optional<Branch> branch = branchRepository.findById(id);
+    if (branch.isPresent()) {
+        logger.info("SERVICE: Tìm thấy chi nhánh: {} với ID: {}", branch.get().getName(), id); // Thêm log
+    } else {
+        logger.warn("SERVICE: Không tìm thấy chi nhánh với ID: {}", id); // Thêm log
     }
+    return branch;
+}
 
     // trả về Optional<Branch> nếu tìm được theo branchcode
     public Optional<Branch> getBranchByBranchCode(String branchCode) {
@@ -54,11 +63,11 @@ public class BranchService {
     // tìm kiếm chi nhanh theo id và save và kiểm tra xem có trùng với chi nhánh nào không ném ra lỗi 
     public Branch updateBranch(Long id, Branch branchDetails) {
         Branch branch = branchRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Branch not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chi nhánh với ID: " + id));
 
         if (!branch.getBranchCode().equals(branchDetails.getBranchCode()) &&
                 branchRepository.existsByBranchCode(branchDetails.getBranchCode())) {
-            throw new IllegalArgumentException("New branch code " + branchDetails.getBranchCode() + " already exists for another branch.");
+            throw new IllegalArgumentException("Mã chi nhánh mới " + branchDetails.getBranchCode() + " đã tồn tại cho một chi nhánh khác.");
         }
 
         branch.setBranchCode(branchDetails.getBranchCode());
@@ -67,13 +76,23 @@ public class BranchService {
         branch.setCity(branchDetails.getCity());
         branch.setPhoneNumber(branchDetails.getPhoneNumber());
         branch.setActive(branchDetails.isActive()); // Cho phép cập nhật trạng thái active
-        return branchRepository.save(branch);
+        branch.setPhoneNumber(branchDetails.getPhoneNumber());
+        branch.setActive(branchDetails.isActive());
+        logger.info("Đang cập nhật chi nhánh ID: {} với thông tin mới...", id);
+        Branch updatedBranch = branchRepository.save(branch);
+        logger.info("Cập nhật thành công chi nhánh ID: {}", updatedBranch.getId());
+        return updatedBranch;
     }
 
     // tìm chi nhánh theo id nếu không có thì báo lỗi và thực hiện việc xoá chi nhánh
-    public void deleteBranch(Long id) { // Xóa ở đây có thể là xóa mềm (đặt active=false) hoặc xóa cứng tùy logic
+    public void deleteBranch(Long id) {
         Branch branch = branchRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Branch not found with id: " + id));
+                .orElseThrow(() -> {
+                    logger.error("SERVICE: Lỗi khi xóa: Không tìm thấy chi nhánh với ID: {}", id); // Thêm log
+                    return new IllegalArgumentException("Không tìm thấy chi nhánh với ID: " + id);
+                });
+        logger.info("SERVICE: Chuẩn bị xóa chi nhánh ID: {}, Tên: {}", id, branch.getName()); // Thêm log
         branchRepository.deleteById(id);
+        logger.info("SERVICE: Đã xóa thành công chi nhánh ID: {}", id); // Thêm log
     }
 }
