@@ -11,7 +11,6 @@ Dự án này mô phỏng một hệ thống quản lý cho một chuỗi tiệm
 5.  [Hướng dẫn Cài đặt và Chạy Dự án](#hướng-dẫn-cài-đặt-và-chạy-dự-án)
     * [Clone Repository](#clone-repository)
     * [Chạy bằng Docker Compose (Khuyến nghị)](#chạy-bằng-docker-compose-khuyến-nghị)
-    * [Chạy Thủ công (Tùy chọn)](#chạy-thủ-công-tùy-chọn)
 6.  [Các Giao diện Người dùng](#các-giao-diện-người-dùng)
 7.  [API Endpoints](#api-endpoints)
 8.  [Giám sát (Monitoring)](#giám-sát-monitoring)
