@@ -26,10 +26,10 @@ services:
     image: elasticsearch:8.18.1 # Image Elasticsearch phiên bản 8.18.1
     container_name: e1 # Tên cụ thể cho container
     environment: # Biến môi trường cho Elasticsearch
-      - node.name=e1 # Tên của node này trong cụm Elasticsearch (đã giải thích)
+      - node.name=e1 # Tên của node này trong cụm Elasticsearch 
       - cluster.name=taphoa-es-cluster # Tên của cụm Elasticsearch, tất cả các node trong cùng một cụm phải có cùng tên này.
-      - discovery.seed_hosts=e2,e3 # Danh sách các host khác mà node này sẽ cố gắng kết nối để tạo/tham gia cụm (đã giải thích)
-      - cluster.initial_master_nodes=e1,e2,e3 # Danh sách các node có khả năng trở thành master khi cụm khởi tạo lần đầu (đã giải thích)
+      - discovery.seed_hosts=e2,e3 # Danh sách các host khác mà node này sẽ cố gắng kết nối để tạo/tham gia cụm 
+      - cluster.initial_master_nodes=e1,e2,e3 # Danh sách các node có khả năng trở thành master khi cụm khởi tạo lần đầu 
       - bootstrap.memory_lock=true # Ngăn Elasticsearch bị swap ra khỏi bộ nhớ, quan trọng cho hiệu năng.
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Cấu hình bộ nhớ heap cho Java Virtual Machine của Elasticsearch (tối thiểu 512MB, tối đa 512MB)
       - xpack.security.enabled=false # Tắt các tính năng bảo mật của X-Pack (như xác thực người dùng, mã hóa)
@@ -165,7 +165,7 @@ services:
       branch-service: # Phụ thuộc vào branch-service (nếu có gọi API từ warehouse-service sang branch-service)
         condition: service_healthy
     environment:
-      - SPRING_ELASTICSEARCH_URIS=http://e1:9200,http://e2:9200,http://e3:9200 # URI kết nối đến cụm Elasticsearch (đã giải thích)
+      - SPRING_ELASTICSEARCH_URIS=http://e1:9200,http://e2:9200,http://e3:9200 # URI kết nối đến cụm Elasticsearch 
       - SERVER_PORT=8080 # Cổng ứng dụng Spring Boot lắng nghe bên trong container
     networks:
       - tiemtaphoa-network
