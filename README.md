@@ -61,7 +61,7 @@ Các service backend (`branch-service`, `warehouse-service`) được xây dựn
 
 Thư mục gốc `Managermaket` chứa các thành phần sau:
 
-```json
+````json
 Managermaket/
 ├── branch-service/             # Source code cho Branch Service (Spring Boot)
 │   ├── src/
@@ -81,7 +81,7 @@ Managermaket/
 │   ├── managerbranch.html      #
 │   └── Dockerfile              # Dockerfile cho giao diện Quản lý Chi nhánh
 └── docker-compose.yml          # File Docker Compose để quản lý và chạy tất cả các services
-```
+````
 
 ## Yêu cầu Hệ thống
 
