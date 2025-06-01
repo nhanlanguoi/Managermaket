@@ -1,7 +1,8 @@
 # Dự án Quản Lý Tiệm Tạp Hóa (ManagerMaket)
 
 Dự án này mô phỏng một hệ thống quản lý cho một chuỗi tiệm tạp hóa, bao gồm quản lý sản phẩm, quản lý kho hàng theo từng chi nhánh, quản lý thông tin chi nhánh và giao diện bán hàng tại điểm bán (POS) cho từng chi nhánh.
-
+Managermaket
+[Nhấn vào đây để tải tài liệu về bản báo cáo dự án (DOCX)](./Managermaket/UDPT.docx)
 ## Mục lục
 
 1.  [Tổng quan Công nghệ](#tổng-quan-công-nghệ)
