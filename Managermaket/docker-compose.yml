@@ -1,71 +1,69 @@
-# Bạn có thể xóa dòng version: '3.8' nếu muốn
-# version: '3.8'
 
-services:
-  postgres-db:
-    image: postgres:15-alpine
-    container_name: postgresdb
-    environment:
-      POSTGRES_USER: adminuser
-      POSTGRES_PASSWORD: adminpass
-      POSTGRES_DB: branchdb
+
+services: 
+  postgres-db: 
+    image: postgres:15-alpine # Chỉ định image Docker sẽ sử dụng. 
+    container_name: postgresdb 
+    environment: # Các biến môi trường sẽ được set bên trong container
+      POSTGRES_USER: adminuser 
+      POSTGRES_PASSWORD: adminpass 
+      POSTGRES_DB: branchdb 
     ports:
-      - "5432:5432"
+      - "5432:5432" # Ánh xạ cổng 5432 của máy host vào cổng 5432 của container postgres-db
     volumes:
-      - postgres_data_compose:/var/lib/postgresql/data
-    networks:
-      - tiemtaphoa-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U adminuser -d branchdb" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      
+      - postgres_data_compose:/var/lib/postgresql/data # Mount volume tên là 'postgres_data_compose' vào thư mục dữ liệu của PostgreSQL
+    networks: # Chỉ định container này sẽ kết nối vào network nào
+      - tiemtaphoa-network # Kết nối vào network tên 'tiemtaphoa-network'
+    healthcheck: # Cấu hình kiểm tra "sức khỏe" của container
+      test: [ "CMD-SHELL", "pg_isready -U adminuser -d branchdb" ] # Lệnh để kiểm tra. pg_isready kiểm tra xem Postgres đã sẵn sàng nhận kết nối chưa.
+      interval: 10s # Thời gian giữa các lần kiểm tra
+      timeout: 5s # Thời gian tối đa chờ lệnh healthcheck hoàn thành
+      retries: 5 # Số lần thử lại nếu healthcheck thất bại
     restart: unless-stopped 
 
+  e1: # Tên service cho node Elasticsearch thứ nhất
+    image: elasticsearch:8.18.1 # Image Elasticsearch phiên bản 8.18.1
+    container_name: e1 # Tên cụ thể cho container
+    environment: # Biến môi trường cho Elasticsearch
+      - node.name=e1 # Tên của node này trong cụm Elasticsearch (đã giải thích)
+      - cluster.name=taphoa-es-cluster # Tên của cụm Elasticsearch, tất cả các node trong cùng một cụm phải có cùng tên này.
+      - discovery.seed_hosts=e2,e3 # Danh sách các host khác mà node này sẽ cố gắng kết nối để tạo/tham gia cụm (đã giải thích)
+      - cluster.initial_master_nodes=e1,e2,e3 # Danh sách các node có khả năng trở thành master khi cụm khởi tạo lần đầu (đã giải thích)
+      - bootstrap.memory_lock=true # Ngăn Elasticsearch bị swap ra khỏi bộ nhớ, quan trọng cho hiệu năng.
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Cấu hình bộ nhớ heap cho Java Virtual Machine của Elasticsearch (tối thiểu 512MB, tối đa 512MB)
+      - xpack.security.enabled=false # Tắt các tính năng bảo mật của X-Pack (như xác thực người dùng, mã hóa)
+      - xpack.security.http.ssl.enabled=false # Tắt SSL cho giao tiếp HTTP (cổng 9200)
+      - xpack.security.transport.ssl.enabled=false # Tắt SSL cho giao tiếp transport giữa các node (cổng 9300)
+    ulimits: # Giới hạn tài nguyên cho container
+      memlock: # Liên quan đến bootstrap.memory_lock=true, cho phép process khóa bộ nhớ.
+        soft: -1 # Giới hạn mềm (không giới hạn)
+        hard: -1 # Giới hạn cứng (không giới hạn)
+      nofile: # Số lượng file descriptor tối đa mà process có thể mở
+        soft: 65536
+        hard: 65536
+    volumes: # Mount volume để lưu trữ dữ liệu của Elasticsearch node này
+      - esdata01:/usr/share/elasticsearch/data 
+    ports: # Ánh xạ cổng
+      - "9200:9200" # Cổng HTTP mặc định của Elasticsearch
+      - "9300:9300" # Cổng Transport mặc định của Elasticsearch (dùng cho giao tiếp giữa các node)
+    networks:
+      - tiemtaphoa-network
+    healthcheck: # Kiểm tra sức khỏe cho Elasticsearch
+      test: ["CMD-SHELL", "curl -sSf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s || exit 1"] # Lệnh curl kiểm tra API health của cluster. Chờ trạng thái cluster ít nhất là 'yellow'.
+      interval: 30s
+      timeout: 15s
+      retries: 10
+    restart: unless-stopped
 
-
-  es01:
+  e2: 
     image: elasticsearch:8.18.1
-    container_name: es01
+    container_name: e2
     environment:
-      - node.name=es01
+      - node.name=e2
       - cluster.name=taphoa-es-cluster
-      - discovery.seed_hosts=es02,es03 # Trỏ đến node es02
-      - cluster.initial_master_nodes=es01,es02,es03 # Quan trọng cho việc khởi tạo cluster
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - xpack.security.enabled=false
-      - xpack.security.http.ssl.enabled=false # Tắt SSL cho HTTP
-      - xpack.security.transport.ssl.enabled=false # Tắt SSL cho transport
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    volumes:
-      - esdata01:/usr/share/elasticsearch/data # Volume dữ liệu riêng cho es01
-    ports:
-      - "9200:9200" # HTTP
-      - "9300:9300"
-    networks:
-      - tiemtaphoa-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sSf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 10
-    restart: unless-stopped # Thêm restart policy
-
-  es02:
-    image: elasticsearch:8.18.1 # Cùng phiên bản với es01
-    container_name: es02
-    environment:
-      - node.name=es02
-      - cluster.name=taphoa-es-cluster
-      - discovery.seed_hosts=es01,es03
-      - cluster.initial_master_nodes=es01,es02,es03
+      - discovery.seed_hosts=e1,e3 # Trỏ đến e1 và e3
+      - cluster.initial_master_nodes=e1,e2,e3
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - xpack.security.enabled=false
@@ -79,10 +77,10 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-      - esdata02:/usr/share/elasticsearch/data # Volume dữ liệu riêng cho es02
+      - esdata02:/usr/share/elasticsearch/data 
     ports:
-      - "9201:9200" # Map ra port 9201 của host để tránh xung đột
-      - "9301:9300" # Map ra port 9301 của host
+      - "9201:9200" # Ánh xạ cổng 9201 của host ra cổng 9200 của container này (tránh xung đột với e1 trên host)
+      - "9301:9300" # Tương tự cho cổng transport
     networks:
       - tiemtaphoa-network
     healthcheck:
@@ -90,23 +88,22 @@ services:
       interval: 30s
       timeout: 15s
       retries: 10
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped
 
-
-  es03:
-    image: elasticsearch:8.18.1 # Cùng phiên bản với es01
-    container_name: es03
+  e3: 
+    image: elasticsearch:8.18.1
+    container_name: e3
     environment:
-      - node.name=es03
+      - node.name=e3
       - cluster.name=taphoa-es-cluster
-      - discovery.seed_hosts=es01,es02 # Trỏ đến node es01
-      - cluster.initial_master_nodes=es01,es02,es03
+      - discovery.seed_hosts=e1,e2 # Trỏ đến e1 và e2
+      - cluster.initial_master_nodes=e1,e2,e3
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
       - xpack.security.transport.ssl.enabled=false
-    ulimits: #Ngăn Elasticsearch bị swap ra khỏi bộ nhớ
+    ulimits:
       memlock:
         soft: -1
         hard: -1
@@ -114,10 +111,10 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-      - esdata03:/usr/share/elasticsearch/data # Volume dữ liệu riêng cho es02
+      - esdata03:/usr/share/elasticsearch/data 
     ports:
-      - "9202:9200" # Map ra port 9201 của host để tránh xung đột
-      - "9302:9300" # Map ra port 9301 của host
+      - "9202:9200" 
+      - "9302:9300" 
     networks:
       - tiemtaphoa-network
     healthcheck:
@@ -127,87 +124,87 @@ services:
       retries: 10
     restart: unless-stopped
 
-  branch-service: # Đổi tên thành branch-service cho nhất quán
-    build:
-      context: ./branch-service # Đảm bảo đường dẫn đúng
-      dockerfile: Dockerfile
-    container_name: branch_service_compose # Đổi tên container
+  branch-service: # Service cho ứng dụng backend quản lý chi nhánh
+    build: # Cấu hình cách build image cho service này từ source code
+      context: ./branch-service # Đường dẫn đến thư mục chứa Dockerfile và source code của branch-service
+      dockerfile: Dockerfile # Tên của Dockerfile sẽ được sử dụng để build image
+    container_name: branch_service_compose
     ports:
-      - "8081:8081"
-    depends_on:
-      postgres-db: # Đổi tên service postgres cho khớp
-        condition: service_healthy
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/branchdb # Dùng tên service postgres-db
-      - SPRING_DATASOURCE_USERNAME=adminuser
-      - SPRING_DATASOURCE_PASSWORD=adminpass
-      - SERVER_PORT=8081 # Chỉ định port bên trong container (nếu Dockerfile không EXPOSE)
+      - "8081:8081" # Ánh xạ cổng 8081 của host tới cổng 8081 mà ứng dụng Spring Boot chạy bên trong container
+    depends_on: # Khai báo service này phụ thuộc vào service khác
+      postgres-db: # Phụ thuộc vào service 'postgres-db'
+        condition: service_healthy # Chỉ khởi động 'branch-service' sau khi 'postgres-db' ở trạng thái "healthy" (đã qua healthcheck)
+    environment: # Biến môi trường cho ứng dụng Spring Boot
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/branchdb # URL kết nối đến database. 'postgres-db' là tên service của PostgreSQL, sẽ được Docker Compose resolve thành IP nội bộ.
+      - SPRING_DATASOURCE_USERNAME=adminuser # Username kết nối DB
+      - SPRING_DATASOURCE_PASSWORD=adminpass # Password kết nối DB
+      - SERVER_PORT=8081 # Cổng mà ứng dụng Spring Boot lắng nghe bên trong container 
     networks:
       - tiemtaphoa-network
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8081/api/branches || exit 1" ] # Giả sử port 8081 và có endpoint /api/branches
+    healthcheck: # Kiểm tra sức khỏe cho branch-service
+      test: [ "CMD-SHELL", "curl -f http://localhost:8081/api/branches || exit 1" ] 
       interval: 15s
       timeout: 10s
       retries: 5
-    restart: unless-stopped #Khởi động lại container trừ khi bị stop thủ công bởi người dùng
+    restart: unless-stopped
 
-  warehouse-service:
+  warehouse-service: 
     build:
-      context: ./warehouse-service
+      context: ./warehouse-service 
       dockerfile: Dockerfile
     container_name: warehouse_service_compose
     ports:
-      - "8080:8080"
-    depends_on:
-      es01:
+      - "8080:8080" # Ánh xạ cổng 8080 của host
+    depends_on: # Phụ thuộc vào các service Elasticsearch và branch-service
+      e1: 
         condition: service_healthy
-      es02:
+      e2: 
         condition: service_healthy
-      es03:
+      e3:
         condition: service_healthy
-      branch-service: # Giữ nguyên nếu warehouse-service có gọi đến branch-service
+      branch-service: # Phụ thuộc vào branch-service (nếu có gọi API từ warehouse-service sang branch-service)
         condition: service_healthy
     environment:
-      - SPRING_ELASTICSEARCH_URIS=http://es01:9200,http://es02:9200,http://es03:9200
-      - SERVER_PORT=8080 # Chỉ định port bên trong container
+      - SPRING_ELASTICSEARCH_URIS=http://e1:9200,http://e2:9200,http://e3:9200 # URI kết nối đến cụm Elasticsearch (đã giải thích)
+      - SERVER_PORT=8080 # Cổng ứng dụng Spring Boot lắng nghe bên trong container
     networks:
       - tiemtaphoa-network
-    restart: unless-stopped
+    restart: unless-stopped #Chính sách khởi động lại
 
-  admin-ui:
+  admin-ui: 
     build:
-      context: ./font_admin
+      context: ./font_admin # Đường dẫn đến source code của font_admin
       dockerfile: Dockerfile
     container_name: admin
     ports:
-      - "8000:80"
+      - "8000:80" # Ánh xạ cổng 8000 của host tới cổng 80 của web server (ví dụ Nginx) chạy trong container font_admin
     networks:
       - tiemtaphoa-network
-    depends_on:
+    depends_on: # Phụ thuộc vào các service backend
       - warehouse-service
       - branch-service
-    restart: unless-stopped 
+    restart: unless-stopped
 
-  branch-manager-ui:
+  branch-manager-ui: # Service cho giao diện người dùng của quản lý chi nhánh
     build:
       context: ./font_manager_branch
       dockerfile: Dockerfile
-    container_name: branch_manager 
+    container_name: branch_manager
     ports:
-      - "8002:80"
+      - "8002:80" # Ánh xạ cổng 8002 của host
     networks:
       - tiemtaphoa-network
     depends_on:
       - branch-service
-    restart: unless-stopped # Thêm restart policy
+    restart: unless-stopped
 
-  branch-pos-ui:
+  branch-pos-ui: 
     build:
       context: ./font_branch
       dockerfile: Dockerfile
     container_name: branch
     ports:
-      - "8003:80"
+      - "8003:80" # Ánh xạ cổng 8003 của host
     networks:
       - tiemtaphoa-network
     depends_on:
@@ -215,16 +212,16 @@ services:
       - branch-service
     restart: unless-stopped
 
-networks:
-  tiemtaphoa-network:
-    driver: bridge
+networks: # Khai báo các network tùy chỉnh
+  tiemtaphoa-network: # Tên của network
+    driver: bridge # Loại network. 'bridge' là network mặc định, tạo một network riêng cho các container trong Compose file này, cho phép chúng giao tiếp với nhau qua tên service.
 
-volumes: # lưu dữ liệu
-  esdata01:
+volumes: # Khai báo các volume để lưu trữ dữ liệu bền vững
+  esdata01: # Tên volume cho node e1 
+    driver: local # Sử dụng driver 'local' của Docker để quản lý volume trên máy host.
+  esdata02: # Tên volume cho node e2 
     driver: local
-  esdata02:
+  esdata03: # Tên volume cho node e3 
     driver: local
-  esdata03:
-    driver: local
-  postgres_data_compose: #  volume cho postgres
+  postgres_data_compose: # Tên volume cho postgres-db
     driver: local
